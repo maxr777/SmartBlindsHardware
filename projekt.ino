@@ -300,13 +300,27 @@ void closeBlinds() {
 
 void checkSchedule() {
     DateTime now = rtc.now();
-    String currentTime = String(now.hour()) + ":" + String(now.minute());
     
-    // Only check time-based triggers if the respective mode is set to "TIME"
-    if (settings.openMode == "TIME" && currentTime == settings.openTime) {
+    // Format current time with leading zeros
+    char currentTime[6];
+    sprintf(currentTime, "%02d:%02d", now.hour(), now.minute());
+    
+    // Parse schedule times
+    int openHour = settings.openTime.substring(0, 2).toInt();
+    int openMinute = settings.openTime.substring(3, 5).toInt();
+    int closeHour = settings.closeTime.substring(0, 2).toInt();
+    int closeMinute = settings.closeTime.substring(3, 5).toInt();
+    
+    // Check if current time matches scheduled times
+    if (settings.openMode == "TIME" && 
+        now.hour() == openHour && 
+        now.minute() == openMinute) {
         openBlinds();
     }
-    if (settings.closeMode == "TIME" && currentTime == settings.closeTime) {
+    
+    if (settings.closeMode == "TIME" && 
+        now.hour() == closeHour && 
+        now.minute() == closeMinute) {
         closeBlinds();
     }
 }
@@ -372,16 +386,11 @@ void loop() {
         updateSensorReadings();
 
         // Check light levels more frequently (every second with sensor readings)
-        // This ensures responsive light-based operation
         if (settings.openMode == "LIGHT" || settings.closeMode == "LIGHT") {
             checkLightLevels();
         }
-    }
-
-    // Check schedule less frequently
-    if (currentTime - lastCheckTime >= CHECK_INTERVAL) {
-        lastCheckTime = currentTime;
-        // Only check schedule if either open or close mode is set to TIME
+        
+        // Also check schedule every second instead of every minute
         if (settings.openMode == "TIME" || settings.closeMode == "TIME") {
             checkSchedule();
         }
