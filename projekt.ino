@@ -271,7 +271,7 @@ void handleBluetoothCommand(String command) {
                 break;
                 
             case REQUEST_STATUS:
-                SerialBT.println("OK:STATUS");
+                sendStatus();
                 break;
                 
             default:
@@ -323,7 +323,11 @@ void sendStatus() {
     DateTime now = rtc.now();
     StaticJsonDocument<200> doc;
     
-    doc["time"] = String(now.hour()) + ":" + String(now.minute());
+    // Format time with leading zeros
+    char timeStr[6];
+    sprintf(timeStr, "%02d:%02d", now.hour(), now.minute());
+    
+    doc["time"] = timeStr;
     doc["lux"] = currentLux;
     doc["blinds"] = blindsOpen ? "OPEN" : "CLOSED";
     
