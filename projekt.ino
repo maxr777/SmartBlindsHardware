@@ -302,19 +302,21 @@ void checkSchedule() {
     DateTime now = rtc.now();
     String currentTime = String(now.hour()) + ":" + String(now.minute());
     
+    // Only check time-based triggers if the respective mode is set to "TIME"
     if (settings.openMode == "TIME" && currentTime == settings.openTime) {
         openBlinds();
     }
-    else if (settings.closeMode == "TIME" && currentTime == settings.closeTime) {
+    if (settings.closeMode == "TIME" && currentTime == settings.closeTime) {
         closeBlinds();
     }
 }
 
 void checkLightLevels() {
-    if (settings.openMode == "LIGHT" && currentLux >= settings.openLux) {
+    // Only check light-based triggers if the respective mode is set to "LIGHT"
+    if (settings.openMode == "LIGHT" && !blindsOpen && currentLux >= settings.openLux) {
         openBlinds();
     }
-    else if (settings.closeMode == "LIGHT" && currentLux <= settings.closeLux) {
+    if (settings.closeMode == "LIGHT" && blindsOpen && currentLux <= settings.closeLux) {
         closeBlinds();
     }
 }
@@ -363,17 +365,25 @@ void loop() {
     // Process any pending commands
     processCommand();
 
-    // Update sensor readings
+    // Update sensor readings at regular intervals
     unsigned long currentTime = millis();
     if (currentTime - lastReadTime >= READ_INTERVAL) {
         lastReadTime = currentTime;
         updateSensorReadings();
+
+        // Check light levels more frequently (every second with sensor readings)
+        // This ensures responsive light-based operation
+        if (settings.openMode == "LIGHT" || settings.closeMode == "LIGHT") {
+            checkLightLevels();
+        }
     }
 
-    // Check schedule and light levels
+    // Check schedule less frequently
     if (currentTime - lastCheckTime >= CHECK_INTERVAL) {
         lastCheckTime = currentTime;
-        checkSchedule();
-        checkLightLevels();
+        // Only check schedule if either open or close mode is set to TIME
+        if (settings.openMode == "TIME" || settings.closeMode == "TIME") {
+            checkSchedule();
+        }
     }
 }
