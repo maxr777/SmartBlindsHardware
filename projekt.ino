@@ -377,10 +377,14 @@ void updateSensorReadings() {
 
 void checkBlindsState() {
     DateTime now = rtc.now();
+    static bool timeCheckPerformed = false;
+    static int lastMinute = -1;
     
-    // Format current time with leading zeros
-    char currentTime[6];
-    sprintf(currentTime, "%02d:%02d", now.hour(), now.minute());
+    // Only run time check once per minute
+    if (now.minute() != lastMinute) {
+        timeCheckPerformed = false;
+        lastMinute = now.minute();
+    }
     
     // Parse schedule times
     int openHour = settings.openTime.substring(0, 2).toInt();
@@ -388,63 +392,58 @@ void checkBlindsState() {
     int closeHour = settings.closeTime.substring(0, 2).toInt();
     int closeMinute = settings.closeTime.substring(3, 5).toInt();
     
-    // Check opening conditions
-    if (!blindsOpen) {
-        if (settings.openMode == "LIGHT" && currentLux >= settings.openLux) {
-            openBlinds();
-        } else if (settings.openMode == "TIME" && 
-                  now.hour() == openHour && 
-                  now.minute() == openMinute) {
+    // Handle time-based triggers (only once per minute)
+    if (!timeCheckPerformed) {
+        if (settings.openMode == "TIME" && 
+            now.hour() == openHour && 
+            now.minute() == openMinute) {
             openBlinds();
         }
+        
+        if (settings.closeMode == "TIME" && 
+            now.hour() == closeHour && 
+            now.minute() == closeMinute) {
+            closeBlinds();
+        }
+        
+        timeCheckPerformed = true;
     }
     
-    // Check closing conditions
-    if (blindsOpen) {
-        if (settings.closeMode == "LIGHT" && currentLux <= settings.closeLux) {
-            closeBlinds();
-        } else if (settings.closeMode == "TIME" && 
-                  now.hour() == closeHour && 
-                  now.minute() == closeMinute) {
-            closeBlinds();
-        }
+    // Handle light-based triggers
+    if (settings.openMode == "LIGHT" && !blindsOpen && currentLux >= settings.openLux) {
+        openBlinds();
+    }
+    
+    if (settings.closeMode == "LIGHT" && blindsOpen && currentLux <= settings.closeLux) {
+        closeBlinds();
     }
 }
 
 void loop() {
-  // Handle Bluetooth communication
-  if (SerialBT.available()) {
-    String received_string = "";
-    while (SerialBT.available()) {
-      char incoming_char = SerialBT.read();
-      received_string += incoming_char;
-      delay(20);
-    }
-    received_string.trim();
+    // Handle Bluetooth communication
+    if (SerialBT.available()) {
+        String received_string = "";
+        while (SerialBT.available()) {
+            char incoming_char = SerialBT.read();
+            received_string += incoming_char;
+            delay(20);
+        }
+        received_string.trim();
 
-    Serial.print("Received Bluetooth Command: ");
-    Serial.println(received_string);
+        Serial.print("Received Bluetooth Command: ");
+        Serial.println(received_string);
 
-    handleBluetoothCommand(received_string);
-  }
-
-  // Process any pending commands
-  processCommand();
-
-  // Update sensor readings at regular intervals
-  unsigned long currentTime = millis();
-  if (currentTime - lastReadTime >= READ_INTERVAL) {
-    lastReadTime = currentTime;
-    updateSensorReadings();
-
-    // Check light levels more frequently (every second with sensor readings)
-    if (settings.openMode == "LIGHT" || settings.closeMode == "LIGHT") {
-      checkLightLevels();
+        handleBluetoothCommand(received_string);
     }
 
-    // Also check schedule every second instead of every minute
-    if (settings.openMode == "TIME" || settings.closeMode == "TIME") {
-      checkSchedule();
+    // Process any pending commands
+    processCommand();
+
+    // Update sensor readings and check blinds state at regular intervals
+    unsigned long currentTime = millis();
+    if (currentTime - lastReadTime >= READ_INTERVAL) {
+        lastReadTime = currentTime;
+        updateSensorReadings();
+        checkBlindsState();  // Single check point for all conditions
     }
-  }
 }
